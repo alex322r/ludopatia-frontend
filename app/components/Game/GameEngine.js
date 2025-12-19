@@ -55,7 +55,7 @@ function create() {
 
 
     const self = this;
-    socket = io(`http://${process.env.GAME_SERVER_URL ?? 'localhost'}:8081`); // Asegúrate que coincida con tu server
+    socket = io(`http://${process.env.NEXT_PUBLIC_GAME_SERVER_URL ?? 'localhost'}:8081`); // Asegúrate que coincida con tu server
     //spriteLeftCard = this.add.sprite(200, 300);
     //spriteRightCard = this.add.sprite(600, 300);
 
