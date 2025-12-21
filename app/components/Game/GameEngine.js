@@ -30,6 +30,7 @@ let socket;
 let spriteLeftCard, spriteRightCard;
 let txtStatus, txtResult;
 let zoneLeft, zoneRight;
+let totalBetTextLeft, totalBetTextRight;
 let txtTimer;
 let timerEvent;
 
@@ -38,6 +39,10 @@ let selectedChip = 10;
 let chipButtons = [];
 let loadingContainer;
 let isLoading = true;
+let realBalance = 0;
+let displayCredits = 0;
+
+let historyGroup;
 
 
 
@@ -78,6 +83,10 @@ function create() {
     // 1. Zonas de Click (Izquierda vs Derecha)
     zoneLeft = this.add.rectangle(width * 0.25, centerY, width * 0.5, height, 0x880000).setInteractive();
     zoneRight = this.add.rectangle(width * 0.75, centerY, width * 0.5, height, 0x000088).setInteractive();
+
+
+    totalBetTextLeft = this.add.text(width * 0.22, 200, '$ 0', { fontSize: '24px' });
+    totalBetTextRight = this.add.text(width * 0.72, 200, '$ 0', { fontSize: '24px' });
 
     this.add.text(width * 0.25, 50, 'IZQUIERDA', { fontSize: '24px' });
     this.add.text(width * 0.75, 50, 'DERECHA', { fontSize: '24px' });
@@ -135,11 +144,22 @@ function create() {
 
     // --- EVENTOS DEL SERVIDOR ---
 
-    socket.on('initialState', (data) => {
-        console.log("Conectado al servidor, ocultando carga...");
+    socket.on('updatePools', (data) => {
 
+
+        animateCreditsChange(this, data.left, totalBetTextLeft);
+        animateCreditsChange(this, data.right, totalBetTextRight);
+
+    })
+
+
+    socket.on('initialState', (data) => {
+
+        realBalance = data.credits;
         // 1. Actualizar datos (créditos, etc)
-        txtCredits.setText(`Créditos: $${data.credits}`);
+        animateCreditsChange(this, data.credits);
+
+        updateHistory(this, data.history);
 
         // 2. Lógica de estado (Tu código anterior para bloquear/desbloquear zonas)
         if (data.gameState === 'BETTING') {
@@ -161,10 +181,6 @@ function create() {
 
 
     // Actualizar saldo inicial 
-    socket.on('updateCredits', (amount) => {
-        txtCredits.setText(`Créditos: $${amount}`);
-    });
-
 
     // A. Nueva Ronda
 
@@ -187,7 +203,9 @@ function create() {
         zoneLeft.setInteractive();
         zoneRight.setInteractive();
 
-        startCountdown(5, self);
+        startCountdown(10, self);
+
+
 
     });
 
@@ -196,12 +214,11 @@ function create() {
     socket.on('apuestaConfirmada', (data) => {
         // data: { side: 'left', newBalance: 900 }
 
-        console.log('Datos Apuesta recibidos:', data); // <--- MIRA LA CONSOLA (F12)
+        realBalance = data.newBalance;
 
         // Si data.newBalance no existe, usaremos 0 o el texto actual para que no salga "undefined"
         const nuevoSaldo = (data.newBalance !== undefined) ? data.newBalance : 'ERROR';
 
-        txtCredits.setText(`Créditos: $${data.newBalance}`);
         txtStatus.setText(`Apostaste $${selectedChip} a ${data.side.toUpperCase()}`);
 
         // Iluminar la zona seleccionada
@@ -214,20 +231,24 @@ function create() {
         }
 
         // Bloquear zonas para no apostar doble
-        zoneLeft.disableInteractive();
-        zoneRight.disableInteractive();
     });
 
     socket.on('betsClosed', (data) => {
+
 
         if (txtTimer) txtTimer.setAlpha(0);
         if (timerEvent) timerEvent.remove();
 
         txtStatus.setText(data.message);
         txtStatus.setColor('#ffaa00');
+        animateCreditsChange(self, realBalance);
 
         zoneLeft.disableInteractive();
         zoneRight.disableInteractive();
+
+        // Opcional: Bajar un poco el brillo para indicar que "se cerró"
+        if (zoneLeft.fillColor === 0xff0000) zoneLeft.setFillStyle(0xaa0000);
+        if (zoneRight.fillColor === 0x0000ff) zoneRight.setFillStyle(0x0000aa);
 
         self.tweens.add({
             targets: [spriteLeftCard, spriteRightCard],
@@ -242,6 +263,8 @@ function create() {
     // C. Resultado final
     socket.on('roundResult', (data) => {
 
+        updateHistory(self, data.history);
+
         self.tweens.killAll();
         spriteLeftCard.setAngle(0);
         spriteRightCard.setAngle(0);
@@ -250,8 +273,11 @@ function create() {
         const frameIndexRight = getCardFrameIndex(data.cardRight.value, data.cardRight.suit);
 
         // 2. Cambiar la textura al spritesheet ('cardsDeck') y usar el frame calculado
-        spriteLeftCard.setTexture('cardsDeck', frameIndexLeft);
-        spriteRightCard.setTexture('cardsDeck', frameIndexRight);
+        //spriteLeftCard.setTexture('cardsDeck', frameIndexLeft);
+        //spriteRightCard.setTexture('cardsDeck', frameIndexRight);
+
+        flipCard(this, spriteLeftCard, 'cardsDeck', frameIndexLeft);
+        flipCard(this, spriteRightCard, 'cardsDeck', frameIndexRight);
 
         // 1. Mostrar las cartas
         //txtLeftCard.setText(`${data.cardLeft.display}\n${data.cardLeft.suit}`);
@@ -270,7 +296,7 @@ function create() {
         if (myResult) {
 
             const nuevoSaldo = myResult.currentCredits;
-            txtCredits.setText(`Créditos: $${nuevoSaldo}`);
+            animateCreditsChange(self, nuevoSaldo);
 
             if (myResult.status === 'NO_BET') {
                 // CASO: NO APOSTÓ
@@ -455,4 +481,65 @@ function removeLoadingScreen(scene) {
             isLoading = false;
         }
     });
+}
+
+function flipCard(scene, sprite, texture, frameIndex) {
+
+    scene.tweens.add({
+        targets: sprite,
+        scaleX: 0,
+        duration: 250,
+        ease: 'Linear',
+        onComplete: () => {
+            sprite.setTexture(texture, frameIndex);
+            scene.tweens.add({
+                targets: sprite,
+                scaleX: 0.5,
+                duration: 250,
+                ease: 'Linear'
+            })
+        }
+    })
+
+}
+
+function updateHistory(scene, historyArray) {
+
+    if (historyGroup) historyGroup.clear(true, true);
+    historyGroup = scene.add.group();
+
+    const startX = scene.scale.width / 2 - (historyArray.length * 20);
+    const y = 50;
+
+    historyArray.forEach((winner, index) => {
+
+        let color = 0xffffff;
+        if (winner === 'left') color = 0xff0000;
+        else if (winner === 'right') color = 0x00ff00;
+        else color = 0xffff00;
+
+        const dot = scene.add.circle(startX + (index * 40), y, 10, color);
+        dot.setStrokeStyle(2, 0xffffff);
+        historyGroup.add(dot);
+
+
+    })
+}
+
+function animateCreditsChange(scene, targetValue, txtElement = txtCredits) {
+
+    scene.tweens.addCounter({
+        from: displayCredits,
+        to: targetValue,
+        duration: 1000,
+        ease: 'Power2',
+        onUpdate: (tween) => {
+            const value = Math.floor(tween.getValue());
+            txtElement.setText(`Creditos: $${value}`);
+            displayCredits = value;
+
+
+        }
+    })
+
 }
