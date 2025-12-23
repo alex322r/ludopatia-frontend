@@ -1,4 +1,3 @@
-'use client'
 // components/Game/GameComponent.jsx
 
 import { useEffect, useRef } from 'react';
@@ -23,6 +22,7 @@ const GameComponent = () => {
                 gameRef.current.destroy(true);
                 gameRef.current = null;
                 initializedRef.current = false;
+                console.log('Juego destruido');
             }
         };
     }, []);

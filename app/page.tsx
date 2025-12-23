@@ -45,6 +45,15 @@ export default function Home() {
       {/* Hero Section */}
       <div className="relative overflow-hidden min-h-[80vh] flex items-center justify-center">
         {/* Background Gradients */}
+        <div className="absolute inset-0 z-0">
+          <Image
+            src="/assets/back-ground.png"
+            alt="Casino Background"
+            fill
+            className="object-cover opacity-40 mix-blend-overlay"
+            priority
+          />
+        </div>
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-900/20 via-zinc-950 to-zinc-950 z-0"></div>
         <div className="absolute top-0 left-0 w-full h-full bg-[url('data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.65%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E')] opacity-[0.05] z-0 pointer-events-none"></div>
         <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-zinc-950 to-transparent z-10"></div>
@@ -86,7 +95,7 @@ export default function Home() {
                 }`}
             >
               {/* Card Background & Glassmorphism */}
-              <div className="absolute inset-0 bg-zinc-900/40 backdrop-blur-sm border border-white/5 group-hover:border-amber-500/40 transition-colors z-10"></div>
+              <div className="absolute inset-0 bg-zinc-900/30 border border-white/5 group-hover:border-amber-500/40 transition-colors z-10"></div>
 
               {/* Image */}
               <div className="absolute inset-0 z-0">
@@ -94,9 +103,9 @@ export default function Home() {
                   src={game.image}
                   alt={game.title}
                   fill
-                  className="object-cover transition-transform duration-700 group-hover:scale-110 opacity-60 group-hover:opacity-80"
+                  className="object-cover transition-transform duration-700 group-hover:scale-110 opacity-80 group-hover:opacity-100"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent z-10"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent z-10"></div>
               </div>
 
               {/* Content */}

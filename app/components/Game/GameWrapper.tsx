@@ -1,5 +1,5 @@
 // components/Game/GameWrapper.jsx
-"use client"; // <--- Importante: Esto lo convierte en Client Component
+"use client";
 
 import dynamic from 'next/dynamic';
 

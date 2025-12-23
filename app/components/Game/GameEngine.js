@@ -10,14 +10,7 @@ export default function initGame(containerId) {
             autoCenter: Phaser.Scale.CENTER_BOTH,
             width: 1280,
             height: 720,
-            min: {
-                width: 320,
-                height: 180
-            },
-            max: {
-                width: 1920,
-                height: 1080
-            }
+
         },
 
         backgroundColor: '#2d2d2d',
@@ -64,7 +57,73 @@ function create() {
     this.historyGroup = this.add.group();
     this.loadingContainer = null;
 
-    this.socket = io(`http://${process.env.NEXT_PUBLIC_GAME_SERVER_URL ?? 'localhost'}:8081`);
+
+    // Crear gráfico para la textura
+    const graphics = this.make.graphics({ x: 0, y: 0, add: false });
+
+    graphics.fillStyle(0xffffff, 1); // Usamos BLANCO base para poder teñirlo (tint) después
+
+    // Dibujar una estrella simple
+    const points = 5;
+    const outerRadius = 15;
+    const innerRadius = 7;
+    let step = Math.PI / points;
+    let angle = -Math.PI / 2; // Empezar arriba
+
+    graphics.beginPath();
+    for (let i = 0; i < points; i++) {
+        graphics.lineTo(Math.cos(angle) * outerRadius + 15, Math.sin(angle) * outerRadius + 15);
+        angle += step;
+        graphics.lineTo(Math.cos(angle) * innerRadius + 15, Math.sin(angle) * innerRadius + 15);
+        angle += step;
+    }
+    graphics.closePath();
+    graphics.fillPath();
+
+    // Generar textura
+    graphics.generateTexture('starParticle', 30, 30);
+
+    // Configura el emisor (pero déjalo apagado)
+
+    this.victoryEmitter = this.add.particles(0, 0, 'starParticle', {
+        // Emitir a lo ancho de la pantalla
+        x: { min: 0, max: 800 },
+        y: -50, // Empezar justo fuera de la pantalla arriba
+
+        // FISICA: Una explosión inicial que se frena
+        speed: { min: 150, max: 450 },
+        angle: { min: 0, max: 360 }, // Salen en todas direcciones al explotar
+        gravityY: 350, // Caen pesadamente
+
+        // VIDA Y APARIENCIA
+        lifespan: { min: 2000, max: 4000 }, // Algunos duran más
+        scale: { start: 0.8, end: 0 }, // Se hacen pequeños hasta desaparecer
+        alpha: { start: 1, end: 0 },   // Se desvanecen suavemente
+        rotate: { min: 0, max: 360 },  // Rotación inicial
+        rotateSpeed: { min: 100, max: 200 }, // Giran mientras caen (efecto confeti)
+
+        // COLORES: Una mezcla de dorado, naranja y blanco
+        tint: [0xffd700, 0xffa500, 0xffffff, 0xffff00],
+
+        // MODO DE MEZCLA: Hace que brillen al superponerse (efecto luz)
+        blendMode: 'ADD',
+
+        emitting: false
+    }).setDepth(1000);
+
+
+
+    let serverHost;
+    if (process.env.NODE_ENV === 'development') {
+        serverHost = '192.168.18.23';
+    } else {
+        serverHost = process.env.NEXT_PUBLIC_GAME_SERVER_URL;
+    }
+
+
+    console.log(process.env.API_KEY);
+
+    this.socket = io(`http://${serverHost}:8081`);
 
     createLoadingScreen(this);
 
@@ -78,15 +137,25 @@ function create() {
     this.totalBetTextLeft = this.add.text(width * 0.22, 200, '$ 0', { fontSize: '24px' });
     this.totalBetTextRight = this.add.text(width * 0.72, 200, '$ 0', { fontSize: '24px' });
 
+    this.txtStatus = this.add.text(centerX, height - 50, 'Esperando...', { fontSize: '20px' }).setOrigin(0.5);
+    this.txtResult = this.add.text(centerX, centerY, '', { fontSize: '64px', color: '#ffff00', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5);
+
     this.add.text(width * 0.25, 50, 'IZQUIERDA', { fontSize: '24px' });
     this.add.text(width * 0.75, 50, 'DERECHA', { fontSize: '24px' });
 
     this.spriteLeftCard = this.add.sprite(width * 0.25, centerY, 'cardBack').setScale(0.5);
     this.spriteRightCard = this.add.sprite(width * 0.75, centerY, 'cardBack').setScale(0.5);
 
+    this.spriteLeftCard.setInteractive();
+    this.spriteLeftCard.on('pointerdown', () => {
+        this.socket.emit('apostar', { side: 'left', amount: this.selectedChip });
+    });
+    this.spriteRightCard.setInteractive();
+    this.spriteRightCard.on('pointerdown', () => {
+        this.socket.emit('apostar', { side: 'right', amount: this.selectedChip });
+    });
+
     // 3. Estado del juego
-    this.txtStatus = this.add.text(centerX, height - 50, 'Esperando...', { fontSize: '20px' }).setOrigin(0.5);
-    this.txtResult = this.add.text(centerX, centerY, '', { fontSize: '64px', color: '#ffff00', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5);
 
     this.txtTimer = this.add.text(width / 2, height / 2, '', {
         fontSize: '200px',
@@ -107,9 +176,9 @@ function create() {
 
     // --- 2. BOTONES DE FICHAS ---
     // Creamos 3 botones: 10, 50, 100
-    createChipButton(this, width - 300, height - 40, 10);
-    createChipButton(this, width - 200, height - 40, 50);
-    createChipButton(this, width - 100, height - 40, 100);
+    createChipButton(this, width - 340, height - 50, 10);
+    createChipButton(this, width - 220, height - 50, 50);
+    createChipButton(this, width - 100, height - 50, 100);
 
     // Marcar visualmente el de 10 como seleccionado inicialmente
     updateChipVisuals(this, 10);
@@ -193,12 +262,11 @@ function create() {
         this.zoneLeft.setInteractive();
         this.zoneRight.setInteractive();
 
-        console.log("Nueva ronda");
         this.totalBetTextLeft.setText('$ 0');
         this.totalBetTextRight.setText('$ 0');
 
-        //this.totalBetTextLeft.currentVal = 0;
-        //this.totalBetTextRight.currentVal = 0;
+        this.totalBetTextLeft.currentVal = 0;
+        this.totalBetTextRight.currentVal = 0;
 
         //animateValue(this, this.totalBetTextLeft, 0, '$ ');
         //animateValue(this, this.totalBetTextRight, 0, '$ ');
@@ -291,6 +359,8 @@ function create() {
         // Limpiamos colores previos
         this.txtResult.setColor('#ffffff');
 
+        this.realBalance = data.results[this.socket.id].currentCredits;
+
         if (myResult) {
 
             const nuevoSaldo = myResult.currentCredits;
@@ -306,6 +376,14 @@ function create() {
                 // CASO: GANÓ
                 this.txtResult.setText('¡GANASTE!');
                 this.txtResult.setColor('#00ff00'); // Verde
+
+                this.victoryEmitter.start();
+
+                // Detener la emisión suavemente después de 2 segundos
+                this.time.delayedCall(2000, () => {
+                    this.victoryEmitter.stop();
+                });
+
             }
             else if (myResult.status === 'LOSE') {
                 // CASO: PERDIÓ
@@ -320,6 +398,19 @@ function create() {
 
         }
 
+    });
+
+    this.events.on('destroy', () => {
+        console.log("Destruyendo escena y desconectando socket...");
+
+        // 1. Detener todas las animaciones pendientes
+        this.tweens.killAll();
+
+        // 2. Desconectar el socket para que deje de recibir mensajes
+        if (this.socket) {
+            this.socket.removeAllListeners(); // Dejar de escuchar eventos
+            this.socket.disconnect();         // Cortar el cable
+        }
     });
 
 
@@ -387,7 +478,7 @@ function startCountdown(seconds, scene) {
 
 function createChipButton(scene, x, y, value) {
     // 1. Dibujar círculo (Ficha)
-    const circle = scene.add.circle(x, y, 30, 0xffffff).setInteractive();
+    const circle = scene.add.circle(x, y, 45, 0xffffff).setInteractive();
     circle.setStrokeStyle(4, 0x000000); // Borde negro
 
     // 2. Texto del valor encima
@@ -508,11 +599,13 @@ function updateHistory(scene, historyArray) {
 
     if (!historyArray) historyArray = []
 
-    if (scene.historyGroup)
+    if (scene.historyGroup) {
+        // destroy(true) removes children and the group itself safely
         scene.historyGroup.clear(true, true);
-
-    scene.historyGroup = scene.add.group();
-
+    } else {
+        // Always create a fresh group
+        scene.historyGroup = scene.add.group();
+    }
     const startX = scene.scale.width / 2 - (historyArray.length * 20);
     const y = 50;
 
@@ -539,8 +632,6 @@ function animateValue(scene, textObject, targetValue, prefix = '') {
         textObject.currentTween.remove();
         textObject.currentTween = null;
     }
-    console.log("Animating value", targetValue);
-
 
     const startValue = textObject.currentVal || 0;
 
@@ -551,6 +642,7 @@ function animateValue(scene, textObject, targetValue, prefix = '') {
         ease: 'Power2',
         onUpdate: (tween) => {
             const value = Math.floor(tween.getValue());
+            //console.log("Animating value", value);
             textObject.setText(`${prefix}${value}`);
             textObject.currentVal = value;
 
