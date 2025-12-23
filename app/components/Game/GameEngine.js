@@ -113,17 +113,23 @@ function create() {
 
 
 
+
+
     let serverHost;
+    let protocol;
+    let port;
     if (process.env.NODE_ENV === 'development') {
         serverHost = '192.168.18.23';
+        protocol = 'http';
+        port = 8081;
     } else {
         serverHost = process.env.NEXT_PUBLIC_GAME_SERVER_URL;
+        protocol = 'https';
     }
-
 
     console.log(process.env.API_KEY);
 
-    this.socket = io(`http://${serverHost}:8081`);
+    this.socket = io(`${protocol}://${serverHost}${port ? `:${port}` : ''}`);
 
     createLoadingScreen(this);
 
