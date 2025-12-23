@@ -31,10 +31,22 @@ function preload() {
 
 
     });
+
+    this.load.spritesheet('chips', '/assets/chips.png', {
+        frameWidth: 320,
+        frameHeight: 320,
+    });
+
     this.load.image('cardBack', '/assets/back.png', {
         frameWidth: 290,
         frameHeight: 400,
     });
+
+    this.load.image('lum', '/assets/lum.png');
+    this.load.image('felt', '/assets/felt.png');
+
+
+
 }
 
 function create() {
@@ -52,7 +64,12 @@ function create() {
     this.realBalance = 0;
     this.chipButtons = [];
     this.isLoading = true;
+    this.chipIndex = 0;
 
+    //felt background
+    this.felt = this.add.tileSprite(0, 0, width, height, 'felt');
+    this.felt.setOrigin(0, 0);
+    this.felt.setDisplaySize(width, height);
 
     this.historyGroup = this.add.group();
     this.loadingContainer = null;
@@ -127,7 +144,6 @@ function create() {
         protocol = 'https';
     }
 
-    console.log(process.env.API_KEY);
 
     this.socket = io(`${protocol}://${serverHost}${port ? `:${port}` : ''}`);
 
@@ -136,18 +152,18 @@ function create() {
     // --- INTERFAZ VISUAL ---
 
     // 1. Zonas de Click (Izquierda vs Derecha)
-    this.zoneLeft = this.add.rectangle(width * 0.25, centerY, width * 0.5, height, 0x880000).setInteractive();
-    this.zoneRight = this.add.rectangle(width * 0.75, centerY, width * 0.5, height, 0x000088).setInteractive();
+    this.zoneLeft = this.add.rectangle(width * 0.25, centerY + 160, width * 0.1, 100, 0x880000).setInteractive();
+    this.zoneRight = this.add.rectangle(width * 0.75, centerY + 160, width * 0.1, 100, 0x000088).setInteractive();
 
 
-    this.totalBetTextLeft = this.add.text(width * 0.22, 200, '$ 0', { fontSize: '24px' });
-    this.totalBetTextRight = this.add.text(width * 0.72, 200, '$ 0', { fontSize: '24px' });
+    this.totalBetTextLeft = this.add.text(width * 0.23, 200, '$ 0', { fontSize: '24px' });
+    this.totalBetTextRight = this.add.text(width * 0.73, 200, '$ 0', { fontSize: '24px' });
 
     this.txtStatus = this.add.text(centerX, height - 50, 'Esperando...', { fontSize: '20px' }).setOrigin(0.5);
     this.txtResult = this.add.text(centerX, centerY, '', { fontSize: '64px', color: '#ffff00', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5);
 
-    this.add.text(width * 0.25, 50, 'IZQUIERDA', { fontSize: '24px' });
-    this.add.text(width * 0.75, 50, 'DERECHA', { fontSize: '24px' });
+    this.add.text(width * 0.20, 160, 'IZQUIERDA', { fontSize: '24px' });
+    this.add.text(width * 0.71, 160, 'DERECHA', { fontSize: '24px' });
 
     this.spriteLeftCard = this.add.sprite(width * 0.25, centerY, 'cardBack').setScale(0.5);
     this.spriteRightCard = this.add.sprite(width * 0.75, centerY, 'cardBack').setScale(0.5);
@@ -182,9 +198,9 @@ function create() {
 
     // --- 2. BOTONES DE FICHAS ---
     // Creamos 3 botones: 10, 50, 100
-    createChipButton(this, width - 340, height - 50, 10);
-    createChipButton(this, width - 220, height - 50, 50);
-    createChipButton(this, width - 100, height - 50, 100);
+    createChipButton(this, width - 340, height - 50, 10, 5);
+    createChipButton(this, width - 220, height - 50, 50, 3);
+    createChipButton(this, width - 100, height - 50, 100, 6);
 
     // Marcar visualmente el de 10 como seleccionado inicialmente
     updateChipVisuals(this, 10);
@@ -193,18 +209,28 @@ function create() {
     // --- EVENTOS DEL JUGADOR ---
 
 
-    this.zoneLeft.on('pointerdown', () => {
+    this.zoneLeft.on('pointerdown', (pointer) => {
+
+        throwChipAnimation(this, pointer.x, pointer.y, width * 0.25, centerY, this.chipIndex);
+
         this.socket.emit('apostar', { side: 'left', amount: this.selectedChip });
         this.zoneLeft.setFillStyle(0xff0000); // Feedback visual (Brillante)
         this.zoneRight.setFillStyle(0x000044); // Opacar el otro
     });
 
-    this.zoneRight.on('pointerdown', () => {
+    this.zoneRight.on('pointerdown', (pointer) => {
+
+        throwChipAnimation(this, pointer.x, pointer.y, width * 0.75, centerY, this.chipIndex);
         this.socket.emit('apostar', { side: 'right', amount: this.selectedChip });
         this.zoneRight.setFillStyle(0x0000ff); // Feedback visual (Brillante)
         this.zoneLeft.setFillStyle(0x440000); // Opacar el otro
     });
 
+
+    const vignette = this.add.image(width / 2, height / 2, 'lum');
+    vignette.setDisplaySize(width, height);
+    vignette.setAlpha(0.7); // Ajusta la oscuridad
+    vignette.setBlendMode(Phaser.BlendModes.MULTIPLY); // Modo de fusión pro
 
 
     // --- EVENTOS DEL SERVIDOR ---
@@ -334,6 +360,8 @@ function create() {
 
     // C. Resultado final
     this.socket.on('roundResult', (data) => {
+
+        this.cameras.main.shake(100, 0.005);
 
         updateHistory(this, data.history);
 
@@ -482,10 +510,12 @@ function startCountdown(seconds, scene) {
     });
 }
 
-function createChipButton(scene, x, y, value) {
+function createChipButton(scene, x, y, value, index) {
     // 1. Dibujar círculo (Ficha)
-    const circle = scene.add.circle(x, y, 45, 0xffffff).setInteractive();
-    circle.setStrokeStyle(4, 0x000000); // Borde negro
+    //const circle = scene.add.circle(x, y, 45, 0xffffff).setInteractive();
+
+    const circle = scene.add.sprite(x, y, 'chips', index).setInteractive();
+    //circle.setStrokeStyle(4, 0x000000); // Borde negro
 
     // 2. Texto del valor encima
     const text = scene.add.text(x, y, value.toString(), {
@@ -499,6 +529,7 @@ function createChipButton(scene, x, y, value) {
     // 4. Evento Click
     circle.on('pointerdown', () => {
         scene.selectedChip = value;
+        scene.chipIndex = index;
         updateChipVisuals(scene, value);
     });
 }
@@ -506,11 +537,9 @@ function createChipButton(scene, x, y, value) {
 function updateChipVisuals(scene, selectedValue) {
     scene.chipButtons.forEach(btn => {
         if (btn.value === selectedValue) {
-            btn.circle.setFillStyle(0xffff00); // Amarillo (Seleccionado)
-            btn.circle.setScale(1.2); // Un poco más grande
+            btn.circle.setScale(0.3); // Un poco más grande
         } else {
-            btn.circle.setFillStyle(0xcccccc); // Gris (No seleccionado)
-            btn.circle.setScale(1);
+            btn.circle.setScale(0.2);
         }
     });
 }
@@ -656,4 +685,33 @@ function animateValue(scene, textObject, targetValue, prefix = '') {
         }
     })
 
+}
+
+function throwChipAnimation(scene, startX, startY, endX, endY, value) {
+    // 1. Crear un sprite temporal de ficha
+    const tempChip = scene.add.sprite(startX, startY, 'chips', value);
+
+    // 2. Animar movimiento hacia la zona
+    scene.tweens.add({
+        targets: tempChip,
+        x: endX,
+        y: endY,
+        scale: { from: 1, to: 0.5 }, // Se aleja (perspectiva)
+        duration: 400,
+        ease: 'Back.out', // Efecto de rebote al llegar
+        onComplete: () => {
+            // 3. Destruir ficha y hacer un pequeño "flash" en la zona
+            tempChip.destroy();
+
+            // Efecto de impacto en la zona de destino
+            const impact = scene.add.circle(endX, endY, 30, 0xffffff, 0.5);
+            scene.tweens.add({
+                targets: impact,
+                scale: 2,
+                alpha: 0,
+                duration: 200,
+                onComplete: () => impact.destroy()
+            });
+        }
+    });
 }
