@@ -132,7 +132,7 @@ export default function Home() {
         <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-amber-500/20 to-transparent"></div>
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-2xl font-playfair font-bold text-amber-500/80 mb-6">LUDOPATIA</h2>
-          <p className="text-zinc-500 text-sm mb-4">© 2025 Ludopatia Casino. Excelencia en cada apuesta.</p>
+          <p className="text-zinc-500 text-sm mb-4">Alexis Rodriguez © 2025 Ludopatia Casino.</p>
           <div className="flex justify-center gap-6 text-xs text-zinc-600 tracking-widest uppercase">
             <span>Juego Responsable</span>
             <span>Términos y Condiciones</span>

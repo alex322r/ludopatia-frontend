@@ -53,6 +53,10 @@ export default function PaginaJuego() {
                     </span>
                 </Link>
             </div>
+            <div className="absolute bottom-4 left-0 w-full text-center">
+                <p className="text-zinc-500 text-sm mb-4">Alexis Rodriguez © 2025 Ludopatia Casino.</p>
+
+            </div>
         </div>
     );
 }
