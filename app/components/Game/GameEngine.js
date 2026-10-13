@@ -136,7 +136,7 @@ function create() {
     let protocol;
     let port;
     if (process.env.NODE_ENV === 'development') {
-        serverHost = '192.168.18.23';
+        serverHost = 'localhost';
         protocol = 'http';
         port = 8081;
     } else {

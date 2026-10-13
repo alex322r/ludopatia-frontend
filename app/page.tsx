@@ -15,7 +15,7 @@ export default function Home() {
       title: "Tragamonedas Royal",
       description: "Gira y gana con nuestros slots de última generación.",
       image: "/assets/slots.png",
-      href: "/jugar",
+      href: "/slots",
     },
     {
       id: "roulette",
